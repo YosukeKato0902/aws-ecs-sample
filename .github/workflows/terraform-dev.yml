@@ -1,0 +1,79 @@
+# -----------------------------------------------------------------------------
+# GitHub Actions - dev環境 Terraformワークフロー
+# developブランチへのpushで自動実行
+# -----------------------------------------------------------------------------
+
+name: Terraform Dev
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - 'environments/dev/**'
+      - 'modules/**'
+      - '.github/workflows/terraform-dev.yml'
+  workflow_dispatch:
+
+env:
+  TF_VERSION: "1.14.3"
+  AWS_REGION: "ap-northeast-1"
+  WORKING_DIRECTORY: "./environments/dev"
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+# 同一環境への同時実行を防止（State Lock競合を回避）
+concurrency:
+  group: terraform-dev
+  cancel-in-progress: false
+
+jobs:
+  terraform:
+    name: Terraform Plan (Dev)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_DEV }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Format Check
+        id: fmt
+        run: terraform fmt -check -recursive
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        continue-on-error: true
+
+      - name: Terraform Init
+        id: init
+        run: terraform init
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+
+      - name: Terraform Validate
+        id: validate
+        run: terraform validate
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+
+      - name: Terraform Plan
+        id: plan
+        run: |
+          terraform plan \
+            -var="db_password_app1=${{ secrets.DB_PASSWORD_APP1_DEV }}" \
+            -var="db_password_app2=${{ secrets.DB_PASSWORD_APP2_DEV }}" \
+            -out=tfplan
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+
+      # NOTE: Apply はローカルで実行してください
+      # terraform apply tfplan

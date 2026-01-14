@@ -1,0 +1,40 @@
+name: Deploy App2 (Dev)
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - 'app2/**'
+      - 'buildspec-app2.yml'
+      - '.github/workflows/deploy-app2-dev.yml'
+  workflow_dispatch:
+
+env:
+  AWS_REGION: "ap-northeast-1"
+  S3_BUCKET: "ecs-web-app-dev-cicd-artifacts-123456789012"
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_DEV }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Create Source Bundle
+        run: |
+          cd app2 && zip -r ../source.zip . && cd ..
+
+      - name: Upload to S3
+        run: |
+          aws s3 cp source.zip s3://${{ env.S3_BUCKET }}/app2/source.zip

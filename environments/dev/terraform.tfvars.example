@@ -1,0 +1,21 @@
+# -----------------------------------------------------------------------------
+# dev環境 変数ファイル (サンプル)
+# 実際の値は環境に合わせて設定してください
+# -----------------------------------------------------------------------------
+
+project_name = "ecs-web-app"
+environment  = "dev"
+region       = "ap-northeast-1"
+
+vpc_cidr           = "10.0.0.0/16"
+availability_zones = ["ap-northeast-1a", "ap-northeast-1c"]
+
+app_port          = 8080
+health_check_path = "/health"
+
+# ACM証明書ARN (ドメイン設定後に設定)
+certificate_arn = ""
+
+# RDSパスワード (実際の運用ではSecrets Managerなどを使用)
+# db_password_app1 = "your-secure-password-here"
+# db_password_app2 = "your-secure-password-here"

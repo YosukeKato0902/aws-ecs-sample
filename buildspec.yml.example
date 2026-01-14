@@ -1,0 +1,67 @@
+# -----------------------------------------------------------------------------
+# CodeBuild用 buildspec.yml (サンプル)
+# 各アプリケーションリポジトリに配置してください
+# -----------------------------------------------------------------------------
+
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo ログイン中...
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+      - REPOSITORY_URI=$ECR_REPOSITORY_URL
+      - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+      - IMAGE_TAG=${COMMIT_HASH:=latest}
+  build:
+    commands:
+      - echo ビルド開始...
+      - docker build -t $REPOSITORY_URI:latest .
+      - docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$IMAGE_TAG
+  post_build:
+    commands:
+      - echo イメージをプッシュ中...
+      - docker push $REPOSITORY_URI:latest
+      - docker push $REPOSITORY_URI:$IMAGE_TAG
+      - echo taskdef.json作成中...
+      - |
+        cat <<EOF > taskdef.json
+        {
+          "family": "${CONTAINER_NAME}",
+          "networkMode": "awsvpc",
+          "requiresCompatibilities": ["FARGATE"],
+          "cpu": "256",
+          "memory": "512",
+          "containerDefinitions": [
+            {
+              "name": "${CONTAINER_NAME}",
+              "image": "${REPOSITORY_URI}:${IMAGE_TAG}",
+              "essential": true,
+              "portMappings": [
+                {
+                  "containerPort": 8080,
+                  "protocol": "tcp"
+                }
+              ]
+            }
+          ]
+        }
+        EOF
+      - echo appspec.yaml作成中...
+      - |
+        cat <<EOF > appspec.yaml
+        version: 0.0
+        Resources:
+          - TargetService:
+              Type: AWS::ECS::Service
+              Properties:
+                TaskDefinition: <TASK_DEFINITION>
+                LoadBalancerInfo:
+                  ContainerName: "${CONTAINER_NAME}"
+                  ContainerPort: 8080
+        EOF
+
+artifacts:
+  files:
+    - taskdef.json
+    - appspec.yaml

@@ -1,0 +1,18 @@
+# -----------------------------------------------------------------------------
+# stg環境 変数ファイル (サンプル)
+# -----------------------------------------------------------------------------
+
+project_name = "ecs-web-app"
+environment  = "stg"
+region       = "ap-northeast-1"
+
+vpc_cidr           = "10.1.0.0/16"
+availability_zones = ["ap-northeast-1a", "ap-northeast-1c"]
+
+app_port          = 8080
+health_check_path = "/health"
+
+certificate_arn = ""
+
+# db_password_app1 = "your-secure-password-here"
+# db_password_app2 = "your-secure-password-here"

@@ -1,0 +1,145 @@
+# -----------------------------------------------------------------------------
+# GitHub Actions - prd環境 Terraformワークフロー
+# 手動発火のみ (workflow_dispatch)
+# -----------------------------------------------------------------------------
+
+name: Terraform Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: '実行するアクション'
+        required: true
+        type: choice
+        options:
+          - plan
+          - apply
+        default: 'plan'
+      confirm_apply:
+        description: '本番適用を確認しましたか？ (applyの場合は "yes" を入力)'
+        required: false
+        type: string
+        default: ''
+
+env:
+  TF_VERSION: "1.14.3"
+  AWS_REGION: "ap-northeast-1"
+  WORKING_DIRECTORY: "./environments/prd"
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+# 同一環境への同時実行を防止（State Lock競合を回避）
+concurrency:
+  group: terraform-prd
+  cancel-in-progress: false
+
+jobs:
+  terraform-plan:
+    name: Terraform Plan (Production)
+    runs-on: ubuntu-latest
+    outputs:
+      plan_exitcode: ${{ steps.plan.outputs.exitcode }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_PRD }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Format Check
+        id: fmt
+        run: terraform fmt -check -recursive
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        continue-on-error: true
+
+      - name: Terraform Init
+        id: init
+        run: terraform init
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+
+      - name: Terraform Validate
+        id: validate
+        run: terraform validate
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+
+      - name: Terraform Plan
+        id: plan
+        run: |
+          terraform plan \
+            -var="db_password_app1=${{ secrets.DB_PASSWORD_APP1_PRD }}" \
+            -var="db_password_app2=${{ secrets.DB_PASSWORD_APP2_PRD }}" \
+            -detailed-exitcode \
+            -out=tfplan || echo "exitcode=$?" >> $GITHUB_OUTPUT
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        continue-on-error: true
+
+      - name: Upload Plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-prd
+          path: ${{ env.WORKING_DIRECTORY }}/tfplan
+          retention-days: 1
+
+  terraform-apply:
+    name: Terraform Apply (Production)
+    runs-on: ubuntu-latest
+    needs: terraform-plan
+    if: github.event.inputs.action == 'apply' && github.event.inputs.confirm_apply == 'yes'
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_PRD }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+
+      - name: Download Plan
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan-prd
+          path: ${{ env.WORKING_DIRECTORY }}
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve tfplan
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+
+      - name: Output Results
+        run: terraform output -json
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+
+  notify-skip:
+    name: Notify Skip Apply
+    runs-on: ubuntu-latest
+    needs: terraform-plan
+    if: github.event.inputs.action == 'apply' && github.event.inputs.confirm_apply != 'yes'
+
+    steps:
+      - name: Notify
+        run: |
+          echo "::warning::本番適用がスキップされました。confirm_apply に 'yes' を入力してください。"

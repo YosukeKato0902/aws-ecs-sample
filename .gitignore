@@ -1,0 +1,35 @@
+# Terraform ファイルを無視
+*.tfstate
+*.tfstate.*
+*.tfplan
+.terraform/
+.terraform.lock.hcl
+
+# 機密情報を含むファイル
+terraform.tfvars
+*.auto.tfvars
+secrets.tfvars
+
+# ローカル設定
+.env
+.envrc
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# ログ
+*.log
+crash.log
+crash.*.log
+
+# 一時ファイル
+tmp/
+temp/
