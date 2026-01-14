@@ -1,11 +1,4 @@
-# AWS ECS Fargate Web Application Portfolio
-
-> **Note:** これはポートフォリオ用に公開しているインフラストラクチャコードです。
-> セキュリティ保護のため、AWSアカウントIDやリポジトリ名などの機密情報はダミー値（`123456789012` 等）に置換しています。
-> 実際の商用環境で使用しているコードを元に、ベストプラクティスを示すために構成されています。
-
 # AWS ECS Fargate Webアプリケーション基盤
-
 
 Terraformを使用したAWS ECS Fargate基盤のインフラストラクチャコード
 
@@ -54,6 +47,7 @@ Terraformを使用したAWS ECS Fargate基盤のインフラストラクチャ�
 ### 📋 設計・仕様
 - [基本設計書](docs/basic_design.md): システム全体像、機能/非機能要件、ネットワーク設計。
 - [詳細設計書](docs/detailed_design.md): 各リソースの詳細パラメータ、セキュリティグループ、ルーティング詳細。
+- [アーキテクチャ選定理由](docs/architecture_decisions.md): ECS Fargate, Terraform, CodePipeline などの技術選定理由と比較検討 (ADR)。
 - [アーキテクチャ図 (PlantUML)](docs/architecture_plantuml.md): PlantUML形式による構成図と表示方法。
 - [アーキテクチャ図 (Images)](docs/architecture.md): 生成済み構成図の一覧と再生成方法。
 
